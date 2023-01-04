@@ -40,9 +40,8 @@ class Server:
     async def run(self):
         await self.mqtt_client.connect()
 
-        async def subscribe_on_reconnect():
+        async def up_event_loop():
             while True:
-                self.led(False)
                 await self.mqtt_client.up.wait()
                 self.mqtt_client.up.clear()
                 self.led(True)
@@ -54,7 +53,15 @@ class Server:
 
                 await self.mqtt_client.subscribe(topic, 1)
 
-        uasyncio.create_task(subscribe_on_reconnect())
+        uasyncio.create_task(up_event_loop())
+
+        async def down_event_loop():
+            while True:
+                await self.mqtt_client.down.wait()
+                self.mqtt_client.down.clear()
+                self.led(False)
+
+        uasyncio.create_task(down_event_loop())
 
         async def handle_request(request):
 
