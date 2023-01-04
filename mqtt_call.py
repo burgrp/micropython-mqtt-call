@@ -3,6 +3,7 @@ import uasyncio
 import _thread
 import ujson
 import uio
+from machine import Pin
 
 EXPORT_PREFIX = 'export_'
 
@@ -12,8 +13,9 @@ class Server:
     handler = None
     name = None
     debug = None
+    led = None
 
-    def __init__(self, name, handler, wifi_ssid, wifi_password, mqtt_broker, debug=False):
+    def __init__(self, name, handler, wifi_ssid, wifi_password, mqtt_broker, ledPin=2, ledLogic=True, debug=False):
         self.name = name
         self.handler = handler
         self.debug = debug
@@ -26,6 +28,9 @@ class Server:
         mqtt_as.MQTTClient.DEBUG = debug
         self.mqtt_client = mqtt_as.MQTTClient(mqtt_config)
 
+        ledPin = Pin(ledPin, Pin.OUT)
+        self.led = lambda on: ledPin.value(on == ledLogic)
+
     def dump(self):
         print("Server", self.name, "exports:")
         for method_name in dir(self.handler):
@@ -37,8 +42,10 @@ class Server:
 
         async def subscribe_on_reconnect():
             while True:
+                self.led(False)
                 await self.mqtt_client.up.wait()
                 self.mqtt_client.up.clear()
+                self.led(True)
 
                 topic = 'call/request/{}'.format(self.name)
 
