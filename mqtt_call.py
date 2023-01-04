@@ -4,6 +4,7 @@ import _thread
 import ujson
 import uio
 
+EXPORT_PREFIX = 'export_'
 
 class Server:
 
@@ -28,8 +29,8 @@ class Server:
     def dump(self):
         print("Server", self.name, "exports:")
         for method_name in dir(self.handler):
-            if not method_name.startswith('__'):
-                print(' -', method_name)
+            if method_name.startswith(EXPORT_PREFIX) and callable(getattr(self.handler, method_name)):
+                print(' -', method_name[len(EXPORT_PREFIX):])
 
     async def run(self):
         await self.mqtt_client.connect()
@@ -74,12 +75,12 @@ class Server:
                 params = request["params"]
 
                 if self.debug:
-                    print("Calling:", service, params, type(params))
+                    print("Calling:", service, params)
 
-                if not hasattr(self.handler, service):
+                if not hasattr(self.handler, EXPORT_PREFIX + service):
                     raise ValueError("Unknown service '{}'".format(service))
 
-                method = getattr(self.handler, service)
+                method = getattr(self.handler, EXPORT_PREFIX + service)
                 result = method(**params)
 
                 if hasattr(result, '__next__'):
