@@ -38,7 +38,16 @@ class Server:
                 print(' -', method_name[len(EXPORT_PREFIX):])
 
     async def run(self):
-        await self.mqtt_client.connect()
+            try:
+                await self.mqtt_client.connect()
+                break
+            except Exception as e:
+                if self.debug:
+                    print('Error connecting to MQTT broker:', e)
+
+                time.sleep(5)
+                if str(e) == 'Wifi Internal Error':
+                    machine.reset()
 
         async def up_event_loop():
             while True:
