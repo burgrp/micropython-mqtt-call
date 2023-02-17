@@ -38,6 +38,7 @@ class Server:
                 print(' -', method_name[len(EXPORT_PREFIX):])
 
     async def run(self):
+        while True:
             try:
                 await self.mqtt_client.connect()
                 break
