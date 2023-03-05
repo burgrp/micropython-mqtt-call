@@ -3,6 +3,7 @@ import uasyncio
 import _thread
 import ujson
 import uio
+import machine
 from machine import Pin
 
 EXPORT_PREFIX = 'export_'
@@ -37,7 +38,12 @@ class Server:
             if method_name.startswith(EXPORT_PREFIX) and callable(getattr(self.handler, method_name)):
                 print(' -', method_name[len(EXPORT_PREFIX):])
 
-    async def run(self):
+    async def run_async(self):
+
+        self.led(True)
+        await uasyncio.sleep_ms(200)
+        self.led(False)
+
         while True:
             try:
                 await self.mqtt_client.connect()
@@ -46,30 +52,39 @@ class Server:
                 if self.debug:
                     print('Error connecting to MQTT broker:', e)
 
-                time.sleep(5)
+                await uasyncio.sleep_ms(5000)
                 if str(e) == 'Wifi Internal Error':
                     machine.reset()
 
         async def up_event_loop():
             while True:
-                await self.mqtt_client.up.wait()
-                self.mqtt_client.up.clear()
-                self.led(True)
+                try:
+                    await self.mqtt_client.up.wait()
+                    self.mqtt_client.up.clear()
+                    self.led(True)
 
-                topic = 'call/request/{}'.format(self.name)
+                    topic = 'call/request/{}'.format(self.name)
 
-                if self.debug:
-                    print("Subscribing to:", topic)
+                    if self.debug:
+                        print("Subscribing to:", topic)
 
-                await self.mqtt_client.subscribe(topic, 1)
+                    await self.mqtt_client.subscribe(topic, 1)
+
+                except Exception as e:
+                    if self.debug:
+                        print('Error in up_event_loop:', e)
 
         uasyncio.create_task(up_event_loop())
 
         async def down_event_loop():
             while True:
-                await self.mqtt_client.down.wait()
-                self.mqtt_client.down.clear()
-                self.led(False)
+                try:
+                    await self.mqtt_client.down.wait()
+                    self.mqtt_client.down.clear()
+                    self.led(False)
+                except Exception as e:
+                    if self.debug:
+                        print('Error in down_event_loop:', e)
 
         uasyncio.create_task(down_event_loop())
 
@@ -130,6 +145,9 @@ class Server:
 
         await read_messages()
 
-    def start(self):
-        _thread.stack_size(32768)
-        _thread.start_new_thread(lambda: uasyncio.run(self.run()), ())
+    def start(self, background=False):
+        if background:
+            _thread.stack_size(32768)
+            _thread.start_new_thread(lambda: uasyncio.run(self.run_async()), ())
+        else:
+            uasyncio.run(self.run_async())
